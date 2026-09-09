@@ -47,6 +47,17 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
+    // TASK 3 Exception Handler: Returns HTTP 400 Bad Request when officer fails eligibility rules
+    @ExceptionHandler(IneligibleOfficerException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIneligibleOfficer(IneligibleOfficerException ex) {
+        ApiResponse<Void> response = ApiResponse.error(
+                HttpStatus.BAD_REQUEST.value(),
+                "Ineligible Officer",
+                ex.getMessage()
+        );
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<Void>> handleBadCredentials(BadCredentialsException ex) {
         ApiResponse<Void> response = ApiResponse.error(

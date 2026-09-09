@@ -43,6 +43,11 @@ public class TrainingProgramme {
 
     private String status = "PUBLISHED"; // PUBLISHED, COMPLETED, CANCELLED
 
+    // TASK 3: Eligibility requirements
+    private Integer minYearsOfService; // e.g., 2 years
+
+    private String requiredGrade; // e.g., "Grade I"
+
     public TrainingProgramme() {
     }
 
@@ -128,5 +133,21 @@ public class TrainingProgramme {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Integer getMinYearsOfService() {
+        return minYearsOfService;
+    }
+
+    public void setMinYearsOfService(Integer minYearsOfService) {
+        this.minYearsOfService = minYearsOfService;
+    }
+
+    public String getRequiredGrade() {
+        return requiredGrade;
+    }
+
+    public void setRequiredGrade(String requiredGrade) {
+        this.requiredGrade = requiredGrade;
     }
 }

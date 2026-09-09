@@ -39,6 +39,9 @@ public class NominationServiceImpl implements NominationService {
     @Autowired
     private DepartmentRepository departmentRepository;
 
+    @Autowired
+    private com.example._2.service.eligibility.EligibilityEngine eligibilityEngine;
+
     @Override
     public NominationResponse createNomination(Long trainingId, CreateNominationRequest request, UserPrincipal currentUser) {
         // 1. Verify Training Programme exists
@@ -49,7 +52,10 @@ public class NominationServiceImpl implements NominationService {
         User officer = userRepository.findById(request.getOfficerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Officer not found with ID: " + request.getOfficerId()));
 
-        // 3. Determine nominating department
+        // 3. TASK 3 VALIDATION: Evaluate All Dynamic Eligibility Rules
+        eligibilityEngine.evaluateAll(officer, training);
+
+        // 4. Determine nominating department
         Department nominatingDepartment;
         if (currentUser.getDepartmentId() != null) {
             nominatingDepartment = departmentRepository.findById(currentUser.getDepartmentId())
@@ -62,7 +68,7 @@ public class NominationServiceImpl implements NominationService {
             throw new ResourceNotFoundException("Nominating department could not be determined for officer");
         }
 
-        // 4. TASK 1 VALIDATION: Check for Duplicate Nomination
+        // 5. TASK 1 VALIDATION: Check for Duplicate Nomination
         Optional<Nomination> existingNomination = nominationRepository
                 .findByTrainingProgrammeIdAndOfficerId(trainingId, officer.getId());
 

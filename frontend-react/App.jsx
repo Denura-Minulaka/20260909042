@@ -33,15 +33,19 @@ export default function App() {
   // Nominate form
   const [nominateOfficerId, setNominateOfficerId] = useState('4');
 
-  // Create training form
+  // Editing state
+  const [editingTrainingId, setEditingTrainingId] = useState(null);
+
+  // Create/Update training form
   const [newTraining, setNewTraining] = useState({
     title: '', description: '', trainingDate: '',
-    maxParticipants: 40, venueId: 1, trainerId: 1, targetDepartmentIds: [1, 2]
+    maxParticipants: 40, venueId: 1, trainerId: 1, targetDepartmentIds: [1, 2],
+    minYearsOfService: 0, requiredGrade: ''
   });
 
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 5000);
+    setTimeout(() => setToast(null), 6000);
   };
 
   const authFetch = (url, opts = {}) => {
@@ -106,23 +110,59 @@ export default function App() {
     } catch { /* silent */ }
   };
 
-  const handleCreateTraining = async (e) => {
+  const handleEditClick = (t) => {
+    setEditingTrainingId(t.id);
+    setNewTraining({
+      title: t.title || '',
+      description: t.description || '',
+      trainingDate: t.trainingDate || '',
+      maxParticipants: t.maxParticipants || 40,
+      venueId: 1, trainerId: 1,
+      targetDepartmentIds: [1, 2],
+      minYearsOfService: t.minYearsOfService || 0,
+      requiredGrade: t.requiredGrade || ''
+    });
+    setActiveTab('create-training');
+    showToast(`Editing "${t.title}". Update the fields and click Save.`, 'info');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTrainingId(null);
+    setNewTraining({
+      title: '', description: '', trainingDate: '', maxParticipants: 40,
+      venueId: 1, trainerId: 1, targetDepartmentIds: [1, 2],
+      minYearsOfService: 0, requiredGrade: ''
+    });
+  };
+
+  const handleCreateOrUpdateTraining = async (e) => {
     e.preventDefault();
     if (!token) return showToast('Please login as Coordinator first', 'error');
     try {
-      const res  = await authFetch(`${API}/trainings`, {
-        method: 'POST',
+      const payload = {
+        ...newTraining,
+        maxParticipants: parseInt(newTraining.maxParticipants),
+        minYearsOfService: parseInt(newTraining.minYearsOfService) || 0
+      };
+
+      const isEditing = editingTrainingId !== null;
+      const url = isEditing ? `${API}/trainings/${editingTrainingId}` : `${API}/trainings`;
+      const method = isEditing ? 'PUT' : 'POST';
+
+      const res  = await authFetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newTraining, maxParticipants: parseInt(newTraining.maxParticipants) }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (res.status === 201) {
-        showToast(`Training "${data.data.title}" created successfully!`, 'success');
+
+      if (res.ok) {
+        showToast(isEditing ? `Training "${data.data.title}" updated successfully!` : `Training "${data.data.title}" created successfully!`, 'success');
         fetchTrainings();
+        handleCancelEdit();
         setActiveTab('trainings');
-        setNewTraining({ title: '', description: '', trainingDate: '', maxParticipants: 40, venueId: 1, trainerId: 1, targetDepartmentIds: [1, 2] });
       } else {
-        showToast(data.message || 'Failed to create training', 'error');
+        showToast(data.message || 'Failed to save training', 'error');
       }
     } catch (err) { showToast(`Network error: ${err.message}`, 'error'); }
   };
@@ -148,7 +188,9 @@ export default function App() {
         fetchNominations(selectedTrainingId);
         setActiveTab('nominations');
       } else if (res.status === 409) {
-        showToast(`Duplicate detected: ${data.message}`, 'error');
+        showToast(`Task 1 Duplicate: ${data.message}`, 'error');
+      } else if (res.status === 400) {
+        showToast(`Task 3 Ineligible: ${data.message}`, 'error');
       } else {
         showToast(data.message || `Error ${res.status}`, 'error');
       }
@@ -197,7 +239,7 @@ export default function App() {
     { id: 'nominate',        label: 'Nominate Officer',    icon: '➕' },
     { id: 'nominations',     label: 'Nominations',         icon: '📊' },
     { id: 'waiting',         label: 'Waiting List',        icon: '⏳' },
-    { id: 'create-training', label: 'Create Training',     icon: '⚙️' },
+    { id: 'create-training', label: editingTrainingId ? '✏️ Edit Training' : '⚙️ Create Training', icon: editingTrainingId ? '✏️' : '⚙️' },
   ];
 
   return (
@@ -248,7 +290,7 @@ export default function App() {
               🏛️ Admin Dept Head
             </button>
             <button className="btn-preset" onClick={() => loginPreset('perera@treasury.gov.lk', 'officer123')}>
-              👤 Officer A. Perera
+              👤 Officer A. Perera (Grade I, 5 yrs)
             </button>
           </div>
         </div>
@@ -274,7 +316,7 @@ export default function App() {
             <div className="panel-header">
               <div className="panel-title">
                 <div className="title-icon">📋</div>
-                Active Training Programmes
+                Active Training Programmes & Dynamic Eligibility Rules
               </div>
               <button className="btn btn-refresh" onClick={fetchTrainings}>↻ Refresh</button>
             </div>
@@ -315,8 +357,20 @@ export default function App() {
                           </div>
                           {t.targetDepartments?.length > 0 && (
                             <div className="meta-row">
-                              <span className="meta-label">Target</span>
+                              <span className="meta-label">Target Depts</span>
                               <span>{t.targetDepartments.join(', ')}</span>
+                            </div>
+                          )}
+                          {t.minYearsOfService > 0 && (
+                            <div className="meta-row">
+                              <span className="meta-label">Min Service</span>
+                              <span>{t.minYearsOfService} year(s)</span>
+                            </div>
+                          )}
+                          {t.requiredGrade && (
+                            <div className="meta-row">
+                              <span className="meta-label">Req Grade</span>
+                              <span>{t.requiredGrade}</span>
                             </div>
                           )}
                         </div>
@@ -329,6 +383,14 @@ export default function App() {
                             <div className={`capacity-fill ${fillCls}`} style={{ width: `${pct}%` }} />
                           </div>
                         </div>
+
+                        {user?.role === 'ROLE_COORDINATOR' && (
+                          <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid var(--border)', textAlign: 'right' }}>
+                            <button className="btn btn-refresh" onClick={() => handleEditClick(t)}>
+                              ✏️ Edit Programme
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -352,8 +414,9 @@ export default function App() {
             <div className="panel-body">
               <div className="form-section">
                 <div className="info-box">
-                  <p><strong>Task 1 — Duplicate Prevention:</strong> Submitting the same officer twice returns HTTP 409 Conflict with details of the previous nomination.</p>
-                  <p><strong>Task 2 — Capacity & Waiting List:</strong> Nominations beyond max capacity are automatically assigned WAITING_LIST status.</p>
+                  <p><strong>Task 1 — Duplicate Prevention:</strong> Submitting the same officer twice returns HTTP 409 Conflict.</p>
+                  <p><strong>Task 2 — Capacity & Waiting List:</strong> Nominations beyond max capacity are assigned WAITING_LIST status.</p>
+                  <p><strong>Task 3 — Eligibility Engine:</strong> Validates Department, Minimum Experience, Grade, and 12-Month Cooldown rules.</p>
                 </div>
 
                 <form onSubmit={handleNominate}>
@@ -382,10 +445,9 @@ export default function App() {
                       onChange={e => setNominateOfficerId(e.target.value)}
                       required
                     >
-                      <option value="4">A. Perera — NIC: 199512345678 (Finance Division)</option>
-                      <option value="5">B. Silva — NIC: 199687654321 (Admin Division)</option>
+                      <option value="4">A. Perera — NIC: 199512345678 (Finance Dept | Grade I | 5 yrs exp)</option>
+                      <option value="5">B. Silva — NIC: 199687654321 (Admin Dept | Grade II | 1 yr exp)</option>
                     </select>
-                    <div className="form-hint">Nominate the same officer twice to trigger Task 1 duplicate detection.</div>
                   </div>
 
                   <button type="submit" className="btn btn-primary">Submit Nomination</button>
@@ -420,7 +482,6 @@ export default function App() {
               </div>
             </div>
             <div className="panel-body">
-              {/* Stats */}
               {nominations.length > 0 && (
                 <div className="stats-bar" style={{ marginBottom: 20 }}>
                   <div className="stat-chip">
@@ -521,7 +582,6 @@ export default function App() {
             <div className="panel-body">
               <div className="info-box" style={{ marginBottom: 20 }}>
                 When a confirmed participant cancels, the <strong>#1 officer on this queue is automatically promoted</strong> to CONFIRMED status.
-                Go to the Nominations tab and click Cancel on a confirmed nomination to test this.
               </div>
 
               {waitingList.length === 0 ? (
@@ -572,26 +632,33 @@ export default function App() {
         )}
 
         {/* ════════════════════════════════════════════════
-            TAB 5 — Create Training
+            TAB 5 — Create / Edit Training
         ════════════════════════════════════════════════ */}
         {activeTab === 'create-training' && (
           <div className="panel">
             <div className="panel-header">
               <div className="panel-title">
-                <div className="title-icon">⚙️</div>
-                Create New Training Programme
+                <div className="title-icon">{editingTrainingId ? '✏️' : '⚙️'}</div>
+                {editingTrainingId ? 'Edit Training Programme' : 'Create New Training Programme'}
               </div>
-              <span className="badge badge-full" style={{ fontSize: '0.72rem' }}>Coordinator Only</span>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                {editingTrainingId && (
+                  <button className="btn btn-refresh" onClick={handleCancelEdit}>
+                    ✕ Cancel Edit
+                  </button>
+                )}
+                <span className="badge badge-full" style={{ fontSize: '0.72rem' }}>Coordinator Only</span>
+              </div>
             </div>
             <div className="panel-body">
               <div className="form-section">
                 {!user || user.role !== 'ROLE_COORDINATOR' ? (
                   <div className="info-box">
-                    ⚠️ You must be logged in as <strong>Coordinator</strong> to create training programmes. Use the Quick Login above.
+                    ⚠️ You must be logged in as <strong>Coordinator</strong> to create or edit training programmes. Use Quick Login above.
                   </div>
                 ) : null}
 
-                <form onSubmit={handleCreateTraining}>
+                <form onSubmit={handleCreateOrUpdateTraining}>
                   <div className="form-group">
                     <label className="form-label">Training Title</label>
                     <input
@@ -599,7 +666,7 @@ export default function App() {
                       className="form-control"
                       value={newTraining.title}
                       onChange={e => setNewTraining({ ...newTraining, title: e.target.value })}
-                      placeholder="e.g. Cybersecurity Awareness Programme"
+                      placeholder="e.g. Executive Management Development Programme"
                       required
                     />
                   </div>
@@ -609,7 +676,7 @@ export default function App() {
                       className="form-control"
                       value={newTraining.description}
                       onChange={e => setNewTraining({ ...newTraining, description: e.target.value })}
-                      placeholder="Programme objectives and details..."
+                      placeholder="Programme objectives..."
                     />
                   </div>
                   <div className="form-group">
@@ -623,7 +690,7 @@ export default function App() {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Max Participants (Capacity Limit)</label>
+                    <label className="form-label">Max Participants Capacity</label>
                     <input
                       type="number"
                       className="form-control"
@@ -632,10 +699,41 @@ export default function App() {
                       min="1"
                       required
                     />
-                    <div className="form-hint">Nominations beyond this number are placed on the waiting list (Task 2).</div>
                   </div>
+
+                  {/* Task 3 Eligibility Configuration */}
+                  <div className="info-box" style={{ background: '#f8fafc', border: '1px solid #cbd5e1', color: 'var(--navy)' }}>
+                    <strong>🎯 Task 3 Dynamic Eligibility Rules Setup:</strong>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Minimum Years of Service Required (Task 3 Rule)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={newTraining.minYearsOfService}
+                      onChange={e => setNewTraining({ ...newTraining, minYearsOfService: e.target.value })}
+                      min="0"
+                      placeholder="e.g. 3"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Required Grade / Designation (Task 3 Rule)</label>
+                    <select
+                      className="form-control"
+                      value={newTraining.requiredGrade}
+                      onChange={e => setNewTraining({ ...newTraining, requiredGrade: e.target.value })}
+                    >
+                      <option value="">— Any Grade Allowed —</option>
+                      <option value="Grade I">Grade I Only</option>
+                      <option value="Grade II">Grade II Only</option>
+                      <option value="Executive">Executive Only</option>
+                    </select>
+                  </div>
+
                   <button type="submit" className="btn btn-primary">
-                    📅 Publish Training Programme
+                    {editingTrainingId ? '💾 Save Changes' : '📅 Publish Training Programme'}
                   </button>
                 </form>
               </div>

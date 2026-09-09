@@ -4,6 +4,7 @@ import com.example._2.model.Nomination;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,6 +28,10 @@ public interface NominationRepository extends JpaRepository<Nomination, Long> {
 
     // TASK 2: Retrieve ordered waiting list (First-Come, First-Served order)
     List<Nomination> findByTrainingProgrammeIdAndStatusOrderByNominatedAtAsc(Long trainingProgrammeId, String status);
+
+    // TASK 3: Check if officer participated in the same training in the past 12 months
+    Optional<Nomination> findFirstByTrainingProgrammeIdAndOfficerIdAndNominatedAtAfterOrderByNominatedAtDesc(
+            Long trainingProgrammeId, Long officerId, LocalDateTime cutoffDate);
 
     // List all nominations for a training programme (replaces manual Excel merging)
     List<Nomination> findByTrainingProgrammeId(Long trainingProgrammeId);

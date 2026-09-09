@@ -17,6 +17,8 @@ public class TrainingResponse {
     private String trainerType;
     private List<String> targetDepartments;
     private String status;
+    private Integer minYearsOfService;
+    private String requiredGrade;
 
     public TrainingResponse() {
     }
@@ -130,5 +132,21 @@ public class TrainingResponse {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Integer getMinYearsOfService() {
+        return minYearsOfService;
+    }
+
+    public void setMinYearsOfService(Integer minYearsOfService) {
+        this.minYearsOfService = minYearsOfService;
+    }
+
+    public String getRequiredGrade() {
+        return requiredGrade;
+    }
+
+    public void setRequiredGrade(String requiredGrade) {
+        this.requiredGrade = requiredGrade;
     }
 }

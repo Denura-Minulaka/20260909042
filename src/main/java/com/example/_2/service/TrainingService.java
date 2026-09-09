@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface TrainingService {
     TrainingResponse createTraining(CreateTrainingRequest request);
+    TrainingResponse updateTraining(Long id, CreateTrainingRequest request);
     List<TrainingResponse> getAllTrainings();
     TrainingResponse getTrainingById(Long id);
 }

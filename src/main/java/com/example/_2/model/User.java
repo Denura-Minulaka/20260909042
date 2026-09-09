@@ -29,7 +29,23 @@ public class User {
     @JoinColumn(name = "department_id")
     private Department department;
 
+    // TASK 3: Eligibility attributes
+    private String grade; // e.g., "Grade I", "Grade II", "Executive"
+
+    private Integer yearsOfService; // e.g., 5
+
     public User() {
+    }
+
+    public User(String fullName, String email, String password, String nic, String role, Department department, String grade, Integer yearsOfService) {
+        this.fullName = fullName;
+        this.email = email;
+        this.password = password;
+        this.nic = nic;
+        this.role = role;
+        this.department = department;
+        this.grade = grade;
+        this.yearsOfService = yearsOfService;
     }
 
     public User(Long id, String fullName, String email, String password, String nic, String role, Department department) {
@@ -105,5 +121,21 @@ public class User {
 
     public void setDepartment(Department department) {
         this.department = department;
+    }
+
+    public String getGrade() {
+        return grade;
+    }
+
+    public void setGrade(String grade) {
+        this.grade = grade;
+    }
+
+    public Integer getYearsOfService() {
+        return yearsOfService;
+    }
+
+    public void setYearsOfService(Integer yearsOfService) {
+        this.yearsOfService = yearsOfService;
     }
 }

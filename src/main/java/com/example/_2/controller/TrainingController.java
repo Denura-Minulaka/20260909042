@@ -33,6 +33,16 @@ public class TrainingController {
                 .body(ApiResponse.created("Training programme created successfully", response));
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_COORDINATOR')")
+    @Operation(summary = "Update Training Programme", description = "Updates an existing training programme (Coordinator only)")
+    public ResponseEntity<ApiResponse<TrainingResponse>> updateTraining(
+            @PathVariable Long id,
+            @Valid @RequestBody CreateTrainingRequest request) {
+        TrainingResponse response = trainingService.updateTraining(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Training programme updated successfully", response));
+    }
+
     @GetMapping
     @Operation(summary = "List All Training Programmes", description = "Retrieves all published training programmes")
     public ResponseEntity<ApiResponse<List<TrainingResponse>>> getAllTrainings() {

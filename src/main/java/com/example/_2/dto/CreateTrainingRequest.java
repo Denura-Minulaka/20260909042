@@ -33,6 +33,11 @@ public class CreateTrainingRequest {
     @NotEmpty(message = "Target department IDs are mandatory")
     private Set<Long> targetDepartmentIds;
 
+    // TASK 3: Optional Eligibility fields
+    private Integer minYearsOfService;
+
+    private String requiredGrade;
+
     public CreateTrainingRequest() {
     }
 
@@ -100,5 +105,21 @@ public class CreateTrainingRequest {
 
     public void setTargetDepartmentIds(Set<Long> targetDepartmentIds) {
         this.targetDepartmentIds = targetDepartmentIds;
+    }
+
+    public Integer getMinYearsOfService() {
+        return minYearsOfService;
+    }
+
+    public void setMinYearsOfService(Integer minYearsOfService) {
+        this.minYearsOfService = minYearsOfService;
+    }
+
+    public String getRequiredGrade() {
+        return requiredGrade;
+    }
+
+    public void setRequiredGrade(String requiredGrade) {
+        this.requiredGrade = requiredGrade;
     }
 }

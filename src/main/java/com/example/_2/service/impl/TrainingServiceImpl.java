@@ -57,9 +57,40 @@ public class TrainingServiceImpl implements TrainingService {
                 new HashSet<>(targetDepartments),
                 "PUBLISHED"
         );
+        programme.setMinYearsOfService(request.getMinYearsOfService());
+        programme.setRequiredGrade(request.getRequiredGrade());
 
         TrainingProgramme saved = trainingRepository.save(programme);
         return mapToResponse(saved);
+    }
+
+    @Override
+    public TrainingResponse updateTraining(Long id, CreateTrainingRequest request) {
+        TrainingProgramme programme = trainingRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Training programme not found with ID: " + id));
+
+        Venue venue = venueRepository.findById(request.getVenueId())
+                .orElseThrow(() -> new ResourceNotFoundException("Venue not found with ID: " + request.getVenueId()));
+
+        Trainer trainer = trainerRepository.findById(request.getTrainerId())
+                .orElseThrow(() -> new ResourceNotFoundException("Trainer not found with ID: " + request.getTrainerId()));
+
+        List<Department> targetDepartments = departmentRepository.findAllById(request.getTargetDepartmentIds());
+
+        programme.setTitle(request.getTitle());
+        programme.setDescription(request.getDescription());
+        programme.setTrainingDate(request.getTrainingDate());
+        programme.setMaxParticipants(request.getMaxParticipants());
+        programme.setVenue(venue);
+        programme.setTrainer(trainer);
+        if (!targetDepartments.isEmpty()) {
+            programme.setTargetDepartments(new HashSet<>(targetDepartments));
+        }
+        programme.setMinYearsOfService(request.getMinYearsOfService());
+        programme.setRequiredGrade(request.getRequiredGrade());
+
+        TrainingProgramme updated = trainingRepository.save(programme);
+        return mapToResponse(updated);
     }
 
     @Override
@@ -82,7 +113,7 @@ public class TrainingServiceImpl implements TrainingService {
                 .map(Department::getName)
                 .toList();
 
-        return new TrainingResponse(
+        TrainingResponse response = new TrainingResponse(
                 programme.getId(),
                 programme.getTitle(),
                 programme.getDescription(),
@@ -96,5 +127,8 @@ public class TrainingServiceImpl implements TrainingService {
                 targetDeptNames,
                 programme.getStatus()
         );
+        response.setMinYearsOfService(programme.getMinYearsOfService());
+        response.setRequiredGrade(programme.getRequiredGrade());
+        return response;
     }
 }
