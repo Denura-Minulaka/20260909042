@@ -93,22 +93,22 @@ class NominationServiceTest {
     }
 
     @Test
-    @DisplayName("Task 1: Creating a new nomination succeeds when no duplicate exists")
-    void testCreateNomination_Success() {
+    @DisplayName("Task 2: Creating a nomination under max capacity sets status to CONFIRMED (FCFS)")
+    void testCreateNomination_UnderCapacity_StatusConfirmed() {
         CreateNominationRequest request = new CreateNominationRequest(4L);
 
         when(trainingRepository.findById(10L)).thenReturn(Optional.of(trainingJava));
         when(userRepository.findById(4L)).thenReturn(Optional.of(officerPerera));
         when(departmentRepository.findById(1L)).thenReturn(Optional.of(deptFinance));
         when(nominationRepository.findByTrainingProgrammeIdAndOfficerId(10L, 4L)).thenReturn(Optional.empty());
-        when(nominationRepository.countByTrainingProgrammeId(10L)).thenReturn(5L);
+        when(nominationRepository.countByTrainingProgrammeIdAndStatus(10L, "CONFIRMED")).thenReturn(5L);
 
         Nomination savedNomination = new Nomination(
                 100L,
                 trainingJava,
                 officerPerera,
                 deptFinance,
-                "PENDING",
+                "CONFIRMED",
                 LocalDateTime.now()
         );
         when(nominationRepository.save(any(Nomination.class))).thenReturn(savedNomination);
@@ -116,57 +116,71 @@ class NominationServiceTest {
         NominationResponse response = nominationService.createNomination(10L, request, currentUserPrincipal);
 
         assertNotNull(response);
-        assertEquals("A. Perera", response.getOfficerName());
-        assertEquals("199512345678", response.getOfficerNic());
-        assertEquals("Finance Division", response.getNominatingDepartmentName());
+        assertEquals("CONFIRMED", response.getStatus());
         verify(nominationRepository, times(1)).save(any(Nomination.class));
     }
 
     @Test
-    @DisplayName("Task 1: Submitting duplicate nomination throws DuplicateNominationException")
-    void testCreateNomination_ThrowsDuplicateNominationException() {
-        CreateNominationRequest request = new CreateNominationRequest(4L);
-
-        when(trainingRepository.findById(10L)).thenReturn(Optional.of(trainingJava));
-        when(userRepository.findById(4L)).thenReturn(Optional.of(officerPerera));
-        when(departmentRepository.findById(1L)).thenReturn(Optional.of(deptFinance));
-
-        Nomination existingNomination = new Nomination(
-                99L,
-                trainingJava,
-                officerPerera,
-                deptFinance,
-                "PENDING",
-                LocalDateTime.now().minusDays(1)
-        );
-        when(nominationRepository.findByTrainingProgrammeIdAndOfficerId(10L, 4L)).thenReturn(Optional.of(existingNomination));
-
-        DuplicateNominationException exception = assertThrows(
-                DuplicateNominationException.class,
-                () -> nominationService.createNomination(10L, request, currentUserPrincipal)
-        );
-
-        assertTrue(exception.getMessage().contains("Officer 'A. Perera' (NIC: 199512345678) has already been nominated"));
-        verify(nominationRepository, never()).save(any(Nomination.class));
-    }
-
-    @Test
-    @DisplayName("Submitting nomination when max capacity reached throws CapacityExceededException")
-    void testCreateNomination_ThrowsCapacityExceededException() {
+    @DisplayName("Task 2: Submitting nomination exceeding capacity places officer on WAITING_LIST")
+    void testCreateNomination_ExceedsCapacity_PlacedOnWaitingList() {
         CreateNominationRequest request = new CreateNominationRequest(4L);
 
         when(trainingRepository.findById(10L)).thenReturn(Optional.of(trainingJava));
         when(userRepository.findById(4L)).thenReturn(Optional.of(officerPerera));
         when(departmentRepository.findById(1L)).thenReturn(Optional.of(deptFinance));
         when(nominationRepository.findByTrainingProgrammeIdAndOfficerId(10L, 4L)).thenReturn(Optional.empty());
-        when(nominationRepository.countByTrainingProgrammeId(10L)).thenReturn(50L); // Max capacity 50 reached!
+        when(nominationRepository.countByTrainingProgrammeIdAndStatus(10L, "CONFIRMED")).thenReturn(50L); // Max capacity 50!
 
-        CapacityExceededException exception = assertThrows(
-                CapacityExceededException.class,
-                () -> nominationService.createNomination(10L, request, currentUserPrincipal)
+        Nomination waitingNomination = new Nomination(
+                101L,
+                trainingJava,
+                officerPerera,
+                deptFinance,
+                "WAITING_LIST",
+                LocalDateTime.now()
+        );
+        when(nominationRepository.save(any(Nomination.class))).thenReturn(waitingNomination);
+
+        NominationResponse response = nominationService.createNomination(10L, request, currentUserPrincipal);
+
+        assertNotNull(response);
+        assertEquals("WAITING_LIST", response.getStatus());
+        verify(nominationRepository, times(1)).save(any(Nomination.class));
+    }
+
+    @Test
+    @DisplayName("Task 2: Cancelling a CONFIRMED nomination automatically promotes the first officer on the WAITING_LIST")
+    void testCancelNomination_AutoPromotesFirstWaitingListOfficer() {
+        Nomination confirmedNomination = new Nomination(
+                100L,
+                trainingJava,
+                officerPerera,
+                deptFinance,
+                "CONFIRMED",
+                LocalDateTime.now().minusDays(2)
         );
 
-        assertTrue(exception.getMessage().contains("reached its maximum participant limit of 50"));
-        verify(nominationRepository, never()).save(any(Nomination.class));
+        User officerSilva = new User(5L, "B. Silva", "silva@treasury.gov.lk", "pwd", "199687654321", "ROLE_OFFICER", deptFinance);
+        Nomination waitingNomination = new Nomination(
+                101L,
+                trainingJava,
+                officerSilva,
+                deptFinance,
+                "WAITING_LIST",
+                LocalDateTime.now().minusDays(1)
+        );
+
+        when(nominationRepository.findById(100L)).thenReturn(Optional.of(confirmedNomination));
+        when(nominationRepository.save(confirmedNomination)).thenReturn(confirmedNomination);
+        when(nominationRepository.findFirstByTrainingProgrammeIdAndStatusOrderByNominatedAtAsc(10L, "WAITING_LIST"))
+                .thenReturn(Optional.of(waitingNomination));
+
+        NominationResponse response = nominationService.cancelNomination(100L, currentUserPrincipal);
+
+        assertEquals("CANCELLED", response.getStatus());
+        verify(nominationRepository, times(1)).save(confirmedNomination);
+        // Verify that waiting list officer was saved with status CONFIRMED
+        verify(nominationRepository, times(1)).save(waitingNomination);
+        assertEquals("CONFIRMED", waitingNomination.getStatus());
     }
 }

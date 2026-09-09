@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@CrossOrigin(origins = "*")
 @RequestMapping("/api/v1")
 @Tag(name = "Nominations", description = "Endpoints for managing officer nominations and duplicate prevention")
 public class NominationController {
@@ -48,6 +49,15 @@ public class NominationController {
         return ResponseEntity.ok(ApiResponse.success("Combined nominations retrieved successfully", responses));
     }
 
+    @GetMapping("/trainings/{trainingId}/waiting-list")
+    @PreAuthorize("hasAnyAuthority('ROLE_COORDINATOR', 'ROLE_DEPT_HEAD')")
+    @Operation(summary = "View Waiting List (Task 2)",
+               description = "Retrieves the ordered waiting list for a training programme in First-Come, First-Served order")
+    public ResponseEntity<ApiResponse<List<NominationResponse>>> getWaitingListByTraining(@PathVariable Long trainingId) {
+        List<NominationResponse> responses = nominationService.getWaitingListByTrainingId(trainingId);
+        return ResponseEntity.ok(ApiResponse.success("Waiting list retrieved successfully", responses));
+    }
+
     @PutMapping("/nominations/{nominationId}/status")
     @PreAuthorize("hasAuthority('ROLE_COORDINATOR')")
     @Operation(summary = "Approve / Reject Nomination", description = "Updates nomination status to APPROVED or REJECTED (Coordinator only)")
@@ -57,5 +67,17 @@ public class NominationController {
 
         NominationResponse response = nominationService.updateNominationStatus(nominationId, status);
         return ResponseEntity.ok(ApiResponse.success("Nomination status updated to " + status, response));
+    }
+
+    @PutMapping("/nominations/{nominationId}/cancel")
+    @PreAuthorize("hasAnyAuthority('ROLE_COORDINATOR', 'ROLE_DEPT_HEAD', 'ROLE_OFFICER')")
+    @Operation(summary = "Cancel Nomination & Trigger Auto-Promotion (Task 2)",
+               description = "Cancels a nomination. If the participant was CONFIRMED, automatically promotes the first officer on the WAITING_LIST to CONFIRMED.")
+    public ResponseEntity<ApiResponse<NominationResponse>> cancelNomination(
+            @PathVariable Long nominationId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+
+        NominationResponse response = nominationService.cancelNomination(nominationId, currentUser);
+        return ResponseEntity.ok(ApiResponse.success("Nomination cancelled successfully and waiting list auto-promoted", response));
     }
 }

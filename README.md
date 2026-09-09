@@ -18,6 +18,12 @@ GTMS solves **Task 1** through a **3-Tier Defense Strategy**:
 2. **Service Tier**: `NominationServiceImpl` checks `findByTrainingProgrammeIdAndOfficerId()` before saving. If present, it throws a `DuplicateNominationException` detailing which officer, NIC, and department performed the prior nomination.
 3. **API Presentation Tier**: `GlobalExceptionHandler` converts the exception into a clean `HTTP 409 CONFLICT` response with a structured JSON error body.
 
+### Solution for Task 2: Limited Capacity & Waiting List Management
+Training programmes have a fixed capacity (`maxParticipants`). When nominations exceed capacity:
+1. **First-Come, First-Served (FCFS)**: The first `maxParticipants` valid nominations in order of submission timestamp (`nominatedAt`) are set to status **`CONFIRMED`**.
+2. **Automated Waiting List**: Nominations beyond capacity are placed on **`WAITING_LIST`**.
+3. **Automated Promotion on Cancellation**: Calling `PUT /api/v1/nominations/{id}/cancel` updates a confirmed nomination's status to `CANCELLED` and **automatically promotes the earliest waiting list officer** to `CONFIRMED`!
+
 ---
 
 ## 🛠️ Environment Configuration & Database Setup
@@ -70,8 +76,10 @@ Open your browser and navigate to:
 * `GET /api/v1/trainings/{id}` - Get training details + current nomination count
 
 ### 3. Nominations (`/api/v1`)
-* `POST /api/v1/trainings/{id}/nominations` - Submit officer nomination (**Task 1: Duplicate Prevention & Capacity Check**)
+* `POST /api/v1/trainings/{id}/nominations` - Submit officer nomination (**Task 1: Duplicate Prevention** & **Task 2: FCFS Status / Waiting List**)
 * `GET /api/v1/trainings/{id}/nominations` - View combined nominations across departments (Replaces Excel merging)
+* `GET /api/v1/trainings/{id}/waiting-list` - View ordered waiting list (**Task 2**)
+* `PUT /api/v1/nominations/{id}/cancel` - Cancel nomination & **auto-promote earliest waiting-list officer** (**Task 2**)
 * `PUT /api/v1/nominations/{id}/status` - Approve / Reject nomination (`ROLE_COORDINATOR` only)
 
 ---

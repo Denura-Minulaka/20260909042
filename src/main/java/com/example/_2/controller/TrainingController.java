@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@CrossOrigin(origins = "*")
 @RequestMapping("/api/v1/trainings")
 @Tag(name = "Training Programmes", description = "Endpoints for managing training programmes")
 public class TrainingController {

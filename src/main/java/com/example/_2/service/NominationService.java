@@ -9,5 +9,7 @@ import java.util.List;
 public interface NominationService {
     NominationResponse createNomination(Long trainingId, CreateNominationRequest request, UserPrincipal currentUser);
     List<NominationResponse> getNominationsByTrainingId(Long trainingId);
+    List<NominationResponse> getWaitingListByTrainingId(Long trainingId);
     NominationResponse updateNominationStatus(Long nominationId, String status);
+    NominationResponse cancelNomination(Long nominationId, UserPrincipal currentUser);
 }

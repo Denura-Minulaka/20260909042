@@ -78,21 +78,23 @@ public class NominationServiceImpl implements NominationService {
             );
         }
 
-        // 5. Capacity Check
-        long currentCount = nominationRepository.countByTrainingProgrammeId(trainingId);
-        if (currentCount >= training.getMaxParticipants()) {
-            throw new CapacityExceededException(
-                    String.format("Training programme '%s' has reached its maximum participant limit of %d.",
-                            training.getTitle(), training.getMaxParticipants())
-            );
+        // 5. TASK 2 FCFS & CAPACITY CHECK:
+        // Count confirmed nominations for this training
+        long confirmedCount = nominationRepository.countByTrainingProgrammeIdAndStatus(trainingId, "CONFIRMED");
+        String initialStatus;
+
+        if (confirmedCount < training.getMaxParticipants()) {
+            initialStatus = "CONFIRMED";
+        } else {
+            initialStatus = "WAITING_LIST";
         }
 
-        // 6. Save Nomination
+        // 6. Save Nomination (FCFS order based on nominatedAt timestamp)
         Nomination nomination = new Nomination(
                 training,
                 officer,
                 nominatingDepartment,
-                "PENDING"
+                initialStatus
         );
 
         Nomination saved = nominationRepository.save(nomination);
@@ -111,13 +113,50 @@ public class NominationServiceImpl implements NominationService {
     }
 
     @Override
+    public List<NominationResponse> getWaitingListByTrainingId(Long trainingId) {
+        if (!trainingRepository.existsById(trainingId)) {
+            throw new ResourceNotFoundException("Training programme not found with ID: " + trainingId);
+        }
+
+        return nominationRepository.findByTrainingProgrammeIdAndStatusOrderByNominatedAtAsc(trainingId, "WAITING_LIST").stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Override
     public NominationResponse updateNominationStatus(Long nominationId, String status) {
         Nomination nomination = nominationRepository.findById(nominationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Nomination not found with ID: " + nominationId));
 
-        nomination.setStatus(status.toUpperCase());
+        String oldStatus = nomination.getStatus();
+        String newStatus = status.toUpperCase();
+        nomination.setStatus(newStatus);
         Nomination updated = nominationRepository.save(nomination);
+
+        // TASK 2 AUTOMATED PROMOTION: If a CONFIRMED participant is cancelled, promote earliest WAITING_LIST officer!
+        if ("CONFIRMED".equalsIgnoreCase(oldStatus) && ("CANCELLED".equalsIgnoreCase(newStatus) || "REJECTED".equalsIgnoreCase(newStatus))) {
+            promoteFirstEligibleFromWaitingList(nomination.getTrainingProgramme().getId());
+        }
+
         return mapToResponse(updated);
+    }
+
+    @Override
+    public NominationResponse cancelNomination(Long nominationId, UserPrincipal currentUser) {
+        return updateNominationStatus(nominationId, "CANCELLED");
+    }
+
+    private void promoteFirstEligibleFromWaitingList(Long trainingId) {
+        Optional<Nomination> waitingListNomination = nominationRepository
+                .findFirstByTrainingProgrammeIdAndStatusOrderByNominatedAtAsc(trainingId, "WAITING_LIST");
+
+        if (waitingListNomination.isPresent()) {
+            Nomination promoted = waitingListNomination.get();
+            promoted.setStatus("CONFIRMED");
+            nominationRepository.save(promoted);
+            System.out.println(String.format(">>> TASK 2 AUTO-PROMOTION: Officer '%s' (ID: %d) promoted from WAITING_LIST to CONFIRMED for Training ID %d <<<",
+                    promoted.getOfficer().getFullName(), promoted.getOfficer().getId(), trainingId));
+        }
     }
 
     private NominationResponse mapToResponse(Nomination nomination) {
